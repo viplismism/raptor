@@ -1,0 +1,54 @@
+# Byte-compiled / optimized
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+
+# Virtual environment
+.venv/
+
+# OS
+.DS_Store
+*.swp
+
+# IDEs
+.vscode/
+.idea/
+
+# Environment
+*.env
+!.env.example
+
+# Logs and databases
+*.log
+*.db
+
+# Build artifacts
+build/
+dist/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Node / Frontend
+node_modules/
+
+# Playwright MCP
+.playwright-mcp/
+
+# Screenshots (dev artifacts, keep project images)
+*.png
+!/raptor_dark.png
+
+# Data / model files
+*.tsv
+*.pt
+local/
+local_*
+finetuning_ckpts/
+
+# Legacy
+demo/cinderella
+gpt*.txt
+* copy*
+checklist.md

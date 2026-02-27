@@ -1,0 +1,63 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "raptor-rag"
+version = "1.0.0"
+description = "RAPTOR: Recursive Abstractive Processing for Tree-Organized Retrieval"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.9"
+authors = [
+    {name = "Vipul M"},
+]
+keywords = ["rag", "retrieval", "nlp", "tree", "summarization", "anthropic", "claude"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+
+dependencies = [
+    "anthropic>=0.39.0",
+    "numpy>=1.24",
+    "python-dotenv>=1.0",
+    "scikit-learn>=1.3",
+    "tenacity>=8.2",
+    "tiktoken>=0.5",
+    "umap-learn>=0.5",
+]
+
+[project.optional-dependencies]
+openai = ["openai>=1.3"]
+local = [
+    "torch>=2.0",
+    "transformers>=4.38",
+]
+sbert = ["sentence-transformers>=2.2"]
+faiss = ["faiss-cpu>=1.7"]
+benchmark = [
+    "faiss-cpu>=1.7",
+    "tqdm>=4.60",
+]
+all = [
+    "raptor-rag[openai,local,sbert,faiss,benchmark]",
+]
+
+[project.urls]
+Homepage = "https://github.com/viplismism/raptor"
+Paper = "https://arxiv.org/abs/2401.18059"
+
+[project.scripts]
+raptor-benchmark = "benchmarks.run_benchmark:main"
+
+[tool.setuptools.packages.find]
+include = ["raptor*", "benchmarks*"]
