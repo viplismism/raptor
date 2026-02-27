@@ -39,6 +39,7 @@ node_modules/
 # Screenshots (dev artifacts, keep project images)
 *.png
 !/raptor_dark.png
+!/docs/screenshots/*.png
 
 # Data / model files
 *.tsv

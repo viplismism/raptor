@@ -112,6 +112,38 @@ config = RetrievalAugmentationConfig(
 RA = RetrievalAugmentation(config=config)
 ```
 
+## Dashboard
+
+A React + Flask web dashboard for visually comparing RAPTOR tree retrieval against flat RAG — side by side.
+
+**Start the servers:**
+
+```bash
+# Backend (port 5000)
+cd dashboard/backend && pip install flask flask-cors && python app.py
+
+# Frontend (port 5173)
+cd dashboard/frontend && npm install && npm run dev
+```
+
+Then open http://localhost:5173.
+
+### Upload documents and get suggested questions
+
+![Dashboard home](docs/screenshots/dashboard-home.png)
+
+### Compare RAPTOR vs Flat RAG answers side-by-side
+
+![Query results](docs/screenshots/query-results.png)
+
+### Browse the RAPTOR tree with the interactive explorer
+
+![Tree explorer](docs/screenshots/tree-explorer.png)
+
+### Visualize the full tree graph with zoom and pan
+
+![Tree graph](docs/screenshots/tree-graph.png)
+
 ## Benchmarking: RAPTOR vs Flat Retrieval
 
 Compare RAPTOR's hierarchical tree retrieval against standard flat FAISS retrieval on the same data:
