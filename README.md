@@ -25,13 +25,21 @@ cd dashboard/frontend && npm install && npm run dev
 
 Open **http://localhost:5173**
 
-| Upload & Stats | Side-by-side Results |
-|---|---|
-| ![home](docs/screenshots/dashboard-home.png) | ![results](docs/screenshots/query-results.png) |
+### Upload & Stats
 
-| Tree Explorer | Graph View |
-|---|---|
-| ![explorer](docs/screenshots/tree-explorer.png) | ![graph](docs/screenshots/tree-graph.png) |
+![home](docs/screenshots/dashboard-home.png)
+
+### Side-by-side Results
+
+![results](docs/screenshots/query-results.png)
+
+### Tree Explorer
+
+![explorer](docs/screenshots/tree-explorer.png)
+
+### Graph View
+
+![graph](docs/screenshots/tree-graph.png)
 
 ---
 
@@ -61,17 +69,14 @@ with open('demo/sample.txt', 'r') as file:
 answer = RA.answer_question("How did Cinderella reach her happy ending?")
 ```
 
-<details>
-<summary><strong>Saving and loading trees</strong></summary>
+### Saving and Loading Trees
 
 ```python
 RA.save("demo/cinderella")
 RA = RetrievalAugmentation(tree="demo/cinderella")
 ```
-</details>
 
-<details>
-<summary><strong>Custom models</strong></summary>
+### Custom Models
 
 Extend the base classes to plug in any model:
 
@@ -100,10 +105,8 @@ config = RetrievalAugmentationConfig(
 )
 RA = RetrievalAugmentation(config=config)
 ```
-</details>
 
-<details>
-<summary><strong>Install extras</strong></summary>
+### Install Extras
 
 | Extra       | What it adds                                  |
 |-------------|-----------------------------------------------|
@@ -117,10 +120,8 @@ RA = RetrievalAugmentation(config=config)
 ```bash
 pip install -e ".[sbert,faiss]"   # pick what you need
 ```
-</details>
 
-<details>
-<summary><strong>Benchmarking</strong></summary>
+### Benchmarking
 
 ```bash
 python -m benchmarks.run_benchmark \
@@ -134,7 +135,8 @@ from raptor import RaptorBenchmark
 report = RaptorBenchmark().run(text, ["How did Cinderella reach her happy ending?"])
 print(report.summary())
 ```
-</details>
+
+See `notebooks/demo.ipynb` for interactive examples.
 
 ---
 
