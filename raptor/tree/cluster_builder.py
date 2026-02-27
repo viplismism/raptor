@@ -111,18 +111,25 @@ class ClusterTreeBuilder(TreeBuilder):
             logger.info(f"Summarization Length: {summarization_length}")
 
             if use_multithreading:
+                # Pre-assign indices to avoid race condition
+                cluster_indices = list(range(
+                    next_node_index, next_node_index + len(clusters)
+                ))
                 with ThreadPoolExecutor() as executor:
-                    for cluster in clusters:
+                    futures = [
                         executor.submit(
                             process_cluster,
                             cluster,
                             new_level_nodes,
-                            next_node_index,
+                            idx,
                             summarization_length,
                             lock,
                         )
-                        next_node_index += 1
-                    executor.shutdown(wait=True)
+                        for cluster, idx in zip(clusters, cluster_indices)
+                    ]
+                    for f in futures:
+                        f.result()  # propagate exceptions
+                next_node_index += len(clusters)
             else:
                 for cluster in clusters:
                     process_cluster(

@@ -20,7 +20,7 @@ def reverse_mapping(layer_to_nodes: Dict[int, List[Node]]) -> Dict[int, int]:
 
 
 def split_text(
-    text: str, tokenizer, max_tokens: int, overlap: int = 0
+    text: str, tokenizer, max_tokens: int, overlap: int = None
 ) -> List[str]:
     """
     Splits the input text into smaller chunks based on the tokenizer and maximum allowed tokens.
@@ -29,73 +29,90 @@ def split_text(
         text: The text to be split.
         tokenizer: The tokenizer to be used for splitting the text.
         max_tokens: The maximum allowed tokens.
-        overlap: The number of overlapping tokens between chunks. Defaults to 0.
+        overlap: Number of overlapping sentences between chunks. Defaults to ~10% of max_tokens.
 
     Returns:
         A list of text chunks.
     """
+    if overlap is None:
+        overlap = max(1, max_tokens // 10)
+
     delimiters = [".", "!", "?", "\n"]
     regex_pattern = "|".join(map(re.escape, delimiters))
     sentences = re.split(regex_pattern, text)
 
-    n_tokens = [len(tokenizer.encode(" " + sentence)) for sentence in sentences]
+    # Pre-compute token counts for each sentence, paired together
+    sentence_tokens = []
+    for s in sentences:
+        if not s.strip():
+            continue
+        tc = len(tokenizer.encode(" " + s))
+        sentence_tokens.append((s, tc))
 
     chunks = []
-    current_chunk = []
+    current_chunk = []     # list of (sentence, token_count)
     current_length = 0
 
-    for sentence, token_count in zip(sentences, n_tokens):
-        if not sentence.strip():
-            continue
+    for sentence, token_count in sentence_tokens:
 
         if token_count > max_tokens:
-            sub_sentences = re.split(r"[,;:]", sentence)
+            # Flush current chunk first
+            if current_chunk:
+                chunks.append(" ".join(s for s, _ in current_chunk))
+                current_chunk = []
+                current_length = 0
 
-            filtered_sub_sentences = [
-                sub.strip() for sub in sub_sentences if sub.strip() != ""
-            ]
-            sub_token_counts = [
-                len(tokenizer.encode(" " + sub_sentence))
-                for sub_sentence in filtered_sub_sentences
+            # Split long sentence by secondary delimiters
+            sub_parts = re.split(r"[,;:]", sentence)
+            sub_tokens = [
+                (sub.strip(), len(tokenizer.encode(" " + sub.strip())))
+                for sub in sub_parts if sub.strip()
             ]
 
             sub_chunk = []
             sub_length = 0
+            for sub, stc in sub_tokens:
+                if sub_length + stc > max_tokens and sub_chunk:
+                    chunks.append(" ".join(s for s, _ in sub_chunk))
+                    # Keep last `overlap` sentences worth of tokens
+                    keep = []
+                    keep_len = 0
+                    for s, t in reversed(sub_chunk):
+                        if keep_len + t > overlap:
+                            break
+                        keep.insert(0, (s, t))
+                        keep_len += t
+                    sub_chunk = keep
+                    sub_length = keep_len
 
-            for sub_sentence, sub_token_count in zip(
-                filtered_sub_sentences, sub_token_counts
-            ):
-                if sub_length + sub_token_count > max_tokens:
-                    if sub_chunk:
-                        chunks.append(" ".join(sub_chunk))
-                        sub_chunk = sub_chunk[-overlap:] if overlap > 0 else []
-                        sub_length = sum(
-                            sub_token_counts[
-                                max(0, len(sub_chunk) - overlap) : len(sub_chunk)
-                            ]
-                        )
-
-                sub_chunk.append(sub_sentence)
-                sub_length += sub_token_count
+                sub_chunk.append((sub, stc))
+                sub_length += stc
 
             if sub_chunk:
-                chunks.append(" ".join(sub_chunk))
+                chunks.append(" ".join(s for s, _ in sub_chunk))
 
         elif current_length + token_count > max_tokens:
-            chunks.append(" ".join(current_chunk))
-            current_chunk = current_chunk[-overlap:] if overlap > 0 else []
-            current_length = sum(
-                n_tokens[max(0, len(current_chunk) - overlap) : len(current_chunk)]
-            )
-            current_chunk.append(sentence)
+            chunks.append(" ".join(s for s, _ in current_chunk))
+            # Keep last sentences up to `overlap` tokens for context continuity
+            keep = []
+            keep_len = 0
+            for s, t in reversed(current_chunk):
+                if keep_len + t > overlap:
+                    break
+                keep.insert(0, (s, t))
+                keep_len += t
+            current_chunk = keep
+            current_length = keep_len
+
+            current_chunk.append((sentence, token_count))
             current_length += token_count
 
         else:
-            current_chunk.append(sentence)
+            current_chunk.append((sentence, token_count))
             current_length += token_count
 
     if current_chunk:
-        chunks.append(" ".join(current_chunk))
+        chunks.append(" ".join(s for s, _ in current_chunk))
 
     return chunks
 

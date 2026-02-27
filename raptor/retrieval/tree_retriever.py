@@ -182,40 +182,65 @@ class TreeRetriever(BaseRetriever):
     def retrieve_information(
         self, current_nodes: List[Node], query: str, num_layers: int
     ) -> str:
+        """Beam search retrieval: keeps wider candidate set across layers."""
         query_embedding = self.create_embedding(query)
 
+        beam_width = self.top_k * 2
         selected_nodes = []
+        seen_indices = set()
 
         node_list = current_nodes
 
         for layer in range(num_layers):
+            if not node_list:
+                break
 
             embeddings = get_embeddings(node_list, self.context_embedding_model)
-
             distances = distances_from_embeddings(query_embedding, embeddings)
-
             indices = indices_of_nearest_neighbors_from_distances(distances)
 
             if self.selection_mode == "threshold":
                 best_indices = [
-                    index for index in indices if distances[index] > self.threshold
+                    idx for idx in indices if distances[idx] < self.threshold
                 ]
             elif self.selection_mode == "top_k":
                 best_indices = indices[: self.top_k]
 
-            nodes_to_add = [node_list[idx] for idx in best_indices]
-
-            selected_nodes.extend(nodes_to_add)
+            # Add selected nodes (deduplicated)
+            for idx in best_indices:
+                node = node_list[idx]
+                if node.index not in seen_indices:
+                    selected_nodes.append(node)
+                    seen_indices.add(node.index)
 
             if layer != num_layers - 1:
+                # Beam search: collect children from top beam_width nodes
+                # (wider than top_k to explore parallel branches)
+                beam_indices = indices[: beam_width]
+                child_indices = set()
+                for idx in beam_indices:
+                    child_indices.update(node_list[idx].children)
 
-                child_nodes = []
+                child_nodes = [
+                    self.tree.all_nodes[i]
+                    for i in child_indices
+                    if i in self.tree.all_nodes
+                ]
 
-                for index in best_indices:
-                    child_nodes.extend(node_list[index].children)
+                if not child_nodes:
+                    break
 
-                child_nodes = list(dict.fromkeys(child_nodes))
-                node_list = [self.tree.all_nodes[i] for i in child_nodes]
+                # Score all children and keep the best beam_width for next layer
+                child_embeddings = get_embeddings(
+                    child_nodes, self.context_embedding_model
+                )
+                child_distances = distances_from_embeddings(
+                    query_embedding, child_embeddings
+                )
+                child_ranked = indices_of_nearest_neighbors_from_distances(
+                    child_distances
+                )
+                node_list = [child_nodes[i] for i in child_ranked[:beam_width]]
 
         context = get_text(selected_nodes)
         return selected_nodes, context

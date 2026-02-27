@@ -24,7 +24,7 @@ def global_cluster_embeddings(
     metric: str = "cosine",
 ) -> np.ndarray:
     if n_neighbors is None:
-        n_neighbors = int((len(embeddings) - 1) ** 0.5)
+        n_neighbors = max(2, min(30, int((len(embeddings) - 1) ** 0.5)))
     reduced_embeddings = umap.UMAP(
         n_neighbors=n_neighbors, n_components=dim, metric=metric
     ).fit_transform(embeddings)
@@ -43,7 +43,7 @@ def local_cluster_embeddings(
 def get_optimal_clusters(
     embeddings: np.ndarray, max_clusters: int = 50, random_state: int = RANDOM_SEED
 ) -> int:
-    max_clusters = min(max_clusters, len(embeddings))
+    max_clusters = min(max_clusters, len(embeddings), int(len(embeddings) ** 0.5) + 10)
     n_clusters = np.arange(1, max_clusters)
     bics = []
     for n in n_clusters:
@@ -108,7 +108,10 @@ def perform_clustering(
                 np.array([j in lc for lc in local_clusters])
             ]
             indices = np.where(
-                (embeddings == local_cluster_embeddings_[:, None]).all(-1)
+                np.array([
+                    np.isclose(embeddings, lce, atol=1e-6).all(-1)
+                    for lce in local_cluster_embeddings_
+                ])
             )[1]
             for idx in indices:
                 all_local_clusters[idx] = np.append(

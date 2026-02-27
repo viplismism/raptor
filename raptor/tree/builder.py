@@ -182,7 +182,7 @@ class TreeBuilder:
 
         if self.selection_mode == "threshold":
             best_indices = [
-                index for index in indices if distances[index] > self.threshold
+                index for index in indices if distances[index] < self.threshold
             ]
         elif self.selection_mode == "top_k":
             best_indices = indices[: self.top_k]
