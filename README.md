@@ -9,6 +9,16 @@ RAPTOR builds a **recursive tree** from documents — clustering and summarizing
 
 > Based on the [original paper](https://arxiv.org/abs/2401.18059) by Sarthi et al. (ICLR 2024)
 
+### What's improved over the original
+
+- **Beam search retrieval** — explores parallel branches in the tree instead of following a single path, so relevant nodes in sibling clusters aren't missed
+- **Chunk overlap** — 10% token overlap between chunks preserves context at boundaries (original had zero overlap)
+- **Bug fixes** — fixed threshold comparison (was selecting dissimilar nodes), float precision in clustering (caused silent node misassignment), and a race condition in parallel tree building
+- **Adaptive clustering** — scales BIC search and UMAP neighbors with document size instead of hardcoded limits
+- **React dashboard** — upload documents, compare RAPTOR vs flat RAG side-by-side, explore the tree visually
+- **Multi-file support** — upload multiple files with per-node source tracking
+- **Benchmark tooling** — CLI scripts for RAPTOR vs flat FAISS comparison
+
 ---
 
 ## Dashboard
