@@ -77,7 +77,7 @@ def llm_judge(question: str, context: str, answer: str, client, model: str) -> d
             "role": "user",
             "content": (
                 f"Question: {question}\n\n"
-                f"Retrieved context (first 500 chars): {context[:500]}\n\n"
+                f"Retrieved context:\n{context}\n\n"
                 f"Answer: {answer}"
             ),
         }],
