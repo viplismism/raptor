@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Markdown from "react-markdown";
 
 const API = "/api";
@@ -7,26 +7,79 @@ export default function Chat({ loaded, suggestions }) {
   const [question, setQuestion] = useState("");
   const [loading, setLoading] = useState(false);
   const [history, setHistory] = useState([]);
+  const [streaming, setStreaming] = useState(null); // current streaming result
+  const abortRef = useRef(null);
 
   async function submitQuestion(q) {
     if (!q.trim() || !loaded || loading) return;
 
+    const trimmed = q.trim();
     setQuestion("");
     setLoading(true);
+    setStreaming({ question: trimmed, flat: {}, raptor: {} });
 
     try {
-      const res = await fetch(`${API}/query`, {
+      const controller = new AbortController();
+      abortRef.current = controller;
+
+      const res = await fetch(`${API}/query?stream=1`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question: q.trim() }),
+        body: JSON.stringify({ question: trimmed }),
+        signal: controller.signal,
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Query failed");
-      setHistory((prev) => [data, ...prev]);
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || "Query failed");
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = "";
+      let result = { question: trimmed, flat: { answer: "" }, raptor: { answer: "" } };
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop(); // keep incomplete line
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          const msg = JSON.parse(line);
+
+          if (msg.type === "retrieval") {
+            result.flat = { ...result.flat, ...msg.flat, answer: "" };
+            result.raptor = { ...result.raptor, ...msg.raptor, answer: "" };
+            setStreaming({ ...result });
+          } else if (msg.type === "flat_token") {
+            result.flat.answer += msg.token;
+            setStreaming({ ...result });
+          } else if (msg.type === "flat_done") {
+            result.flat.qa_time = msg.qa_time;
+            setStreaming({ ...result });
+          } else if (msg.type === "raptor_token") {
+            result.raptor.answer += msg.token;
+            setStreaming({ ...result });
+          } else if (msg.type === "raptor_done") {
+            result.raptor.qa_time = msg.qa_time;
+            setStreaming({ ...result });
+          }
+        }
+      }
+
+      setHistory((prev) => [result, ...prev]);
     } catch (err) {
-      setHistory((prev) => [{ question: q.trim(), error: err.message }, ...prev]);
+      if (err.name !== "AbortError") {
+        setHistory((prev) => [{ question: trimmed, error: err.message }, ...prev]);
+      }
     } finally {
       setLoading(false);
+      setStreaming(null);
+      abortRef.current = null;
     }
   }
 
@@ -35,7 +88,6 @@ export default function Chat({ loaded, suggestions }) {
     submitQuestion(question);
   }
 
-  // Only show suggestions that haven't been asked yet
   const asked = new Set(history.map((h) => h.question));
   const visibleSuggestions = suggestions.filter((s) => !asked.has(s));
 
@@ -77,14 +129,12 @@ export default function Chat({ loaded, suggestions }) {
         </div>
       )}
 
-      {loading && (
-        <div className="loading-bar">
-          <span className="spinner" /> Querying both pipelines...
-        </div>
+      {streaming && (
+        <StreamingCard item={streaming} />
       )}
 
       <div className="history">
-        {history.length === 0 && !loading && (
+        {history.length === 0 && !loading && !streaming && (
           <div className="empty-state">
             <p>
               {loaded
@@ -98,6 +148,61 @@ export default function Chat({ loaded, suggestions }) {
         ))}
       </div>
     </section>
+  );
+}
+
+function StreamingCard({ item }) {
+  const hasFlat = item.flat?.answer;
+  const hasRaptor = item.raptor?.answer;
+
+  return (
+    <div className="result-card streaming">
+      <div className="result-question">{item.question}</div>
+      <div className="result-columns">
+        <div className="result-col flat">
+          <div className="col-header">
+            <span className="col-label">Flat RAG</span>
+          </div>
+          {item.flat?.retrieve_time != null && (
+            <div className="col-meta">
+              <span className="timing-badge">Retrieval {item.flat.retrieve_time}s</span>
+              {item.flat.rerank_time != null && (
+                <span className="timing-badge">Rerank {item.flat.rerank_time}s</span>
+              )}
+              {item.flat.qa_time != null && (
+                <span className="timing-badge">QA {item.flat.qa_time}s</span>
+              )}
+            </div>
+          )}
+          <div className="answer">
+            <div className="answer-label">{hasFlat ? "Answer" : "Generating..."}</div>
+            {hasFlat ? <Markdown>{item.flat.answer}</Markdown> : <span className="spinner" />}
+          </div>
+        </div>
+        <div className="result-col raptor">
+          <div className="col-header">
+            <span className="col-label">RAPTOR</span>
+          </div>
+          {item.raptor?.retrieve_time != null && (
+            <div className="col-meta">
+              <span className="timing-badge">Retrieval {item.raptor.retrieve_time}s</span>
+              {item.raptor.qa_time != null && (
+                <span className="timing-badge">QA {item.raptor.qa_time}s</span>
+              )}
+              {item.raptor.layers_hit && (
+                <span className="timing-badge layers-badge">
+                  Layers [{item.raptor.layers_hit.join(", ")}]
+                </span>
+              )}
+            </div>
+          )}
+          <div className="answer">
+            <div className="answer-label">{hasRaptor ? "Answer" : "Waiting..."}</div>
+            {hasRaptor ? <Markdown>{item.raptor.answer}</Markdown> : <span className="spinner" />}
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -161,6 +266,9 @@ function ResultColumn({ label, accent, data, onShowContext }) {
 
       <div className="col-meta">
         <span className="timing-badge">Retrieval {data.retrieve_time}s</span>
+        {data.rerank_time != null && (
+          <span className="timing-badge">Rerank {data.rerank_time}s</span>
+        )}
         <span className="timing-badge">QA {data.qa_time}s</span>
         {data.layers_hit && (
           <span className="timing-badge layers-badge">

@@ -65,12 +65,12 @@ export default function Upload({ onUploaded, loaded, fileNames }) {
           <input
             ref={fileRef}
             type="file"
-            accept=".txt"
+            accept=".txt,.pdf,.docx"
             multiple
             onChange={handleFiles}
             disabled={uploading}
           />
-          Upload .txt files
+          Upload files
         </label>
         <span className="upload-or">or</span>
         <button

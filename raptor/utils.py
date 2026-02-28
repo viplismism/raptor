@@ -37,9 +37,13 @@ def split_text(
     if overlap is None:
         overlap = max(1, max_tokens // 10)
 
-    delimiters = [".", "!", "?", "\n"]
-    regex_pattern = "|".join(map(re.escape, delimiters))
-    sentences = re.split(regex_pattern, text)
+    # Split on sentence-ending punctuation followed by whitespace, or newlines.
+    # Pre-protect common abbreviations from being split on.
+    protected = text
+    for abbr in ["Mr.", "Mrs.", "Ms.", "Dr.", "Prof.", "Sr.", "Jr.", "vs.", "etc.", "i.e.", "e.g."]:
+        protected = protected.replace(abbr, abbr.replace(".", "\x00"))
+    sentences_raw = re.split(r'\.\s+|[!?]\s+|\n+', protected)
+    sentences = [s.replace("\x00", ".") for s in sentences_raw]
 
     # Pre-compute token counts for each sentence, paired together
     sentence_tokens = []

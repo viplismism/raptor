@@ -44,12 +44,14 @@ local = [
 ]
 sbert = ["sentence-transformers>=2.2"]
 faiss = ["faiss-cpu>=1.7"]
+pdf = ["pymupdf>=1.23"]
+docx = ["python-docx>=1.0"]
 benchmark = [
     "faiss-cpu>=1.7",
     "tqdm>=4.60",
 ]
 all = [
-    "raptor-rag[openai,local,sbert,faiss,benchmark]",
+    "raptor-rag[openai,local,sbert,faiss,pdf,docx,benchmark]",
 ]
 
 [project.urls]

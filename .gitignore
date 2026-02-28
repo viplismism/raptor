@@ -48,6 +48,9 @@ local/
 local_*
 finetuning_ckpts/
 
+# Session cache
+.raptor_cache/
+
 # Legacy
 demo/cinderella
 gpt*.txt
