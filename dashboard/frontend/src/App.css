@@ -11,8 +11,8 @@
   --bg: #f4f0ea;
   --surface: #fff;
   --surface-warm: #faf8f4;
-  --dark: #4a5568;
-  --dark-soft: #5a6578;
+  --dark: #1c1c28;
+  --dark-soft: #2a2a3a;
   --text: #1c1c28;
   --text-secondary: #6b6b7b;
   --text-muted: #9d9daa;
@@ -72,7 +72,7 @@ body {
 
 .header-sub {
   font-size: 0.78rem;
-  color: rgba(255, 255, 255, 0.45);
+  color: rgba(255, 255, 255, 0.7);
   font-weight: 400;
 }
 
