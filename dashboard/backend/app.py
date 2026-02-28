@@ -166,6 +166,43 @@ def answer_stream(context: str, question: str):
             yield text
 
 
+def judge_answers(question: str, flat_ctx: str, flat_answer: str, raptor_ctx: str, raptor_answer: str) -> dict:
+    """Compare both answers side-by-side and score each on relevance, completeness, correctness (0-10)."""
+    try:
+        response = _anthropic_client.messages.create(
+            model=CLAUDE_MODEL,
+            max_tokens=256,
+            system=(
+                "You are comparing two QA systems answering the same question. "
+                "System A uses flat chunk retrieval. System B uses hierarchical tree retrieval.\n\n"
+                "Score EACH system on three dimensions (0-10). Be discriminating — "
+                "if one answer is more complete or accurate, its score should be noticeably higher.\n"
+                "- relevance: does it address the question directly?\n"
+                "- completeness: does it cover all important aspects?\n"
+                "- correctness: is it factually accurate given its retrieved context?\n\n"
+                'Output ONLY JSON:\n'
+                '{"flat": {"relevance": 7, "completeness": 5, "correctness": 6}, '
+                '"raptor": {"relevance": 9, "completeness": 8, "correctness": 9}}'
+            ),
+            messages=[{
+                "role": "user",
+                "content": (
+                    f"Question: {question}\n\n"
+                    f"--- System A (Flat RAG) ---\n"
+                    f"Context:\n{flat_ctx[:2000]}\n\n"
+                    f"Answer: {flat_answer}\n\n"
+                    f"--- System B (RAPTOR) ---\n"
+                    f"Context:\n{raptor_ctx[:2000]}\n\n"
+                    f"Answer: {raptor_answer}"
+                ),
+            }],
+        )
+        return json.loads(response.content[0].text.strip())
+    except Exception as e:
+        logger.warning(f"Judge failed: {e}")
+        return None
+
+
 def generate_suggestions(file_names: list, file_texts: list) -> list:
     """Generate suggested questions covering all uploaded files."""
     per_file = 500
@@ -462,9 +499,12 @@ def query():
 
                 q = queue.Queue()
 
+                answers = {"flat": "", "raptor": ""}
+
                 def stream_flat():
                     t0 = time.time()
                     for token in answer_stream(flat_ctx, question):
+                        answers["flat"] += token
                         q.put(json.dumps({"type": "flat_token", "token": token}) + "\n")
                     qa_time = time.time() - t0
                     q.put(json.dumps({"type": "flat_done", "qa_time": round(qa_time, 3)}) + "\n")
@@ -472,6 +512,7 @@ def query():
                 def stream_raptor():
                     t0 = time.time()
                     for token in answer_stream(raptor_ctx, question):
+                        answers["raptor"] += token
                         q.put(json.dumps({"type": "raptor_token", "token": token}) + "\n")
                     qa_time = time.time() - t0
                     q.put(json.dumps({"type": "raptor_done", "qa_time": round(qa_time, 3)}) + "\n")
@@ -493,6 +534,17 @@ def query():
 
                 t_flat.join()
                 t_raptor.join()
+
+                # Score both answers comparatively with LLM judge
+                result = judge_answers(
+                    question, flat_ctx, answers["flat"], raptor_ctx, answers["raptor"]
+                )
+
+                yield json.dumps({
+                    "type": "scores",
+                    "flat": result.get("flat") if result else None,
+                    "raptor": result.get("raptor") if result else None,
+                }) + "\n"
 
             return Response(
                 stream_with_context(generate()),

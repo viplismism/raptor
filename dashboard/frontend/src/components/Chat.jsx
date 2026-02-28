@@ -67,6 +67,10 @@ export default function Chat({ loaded, suggestions }) {
           } else if (msg.type === "raptor_done") {
             result.raptor.qa_time = msg.qa_time;
             setStreaming({ ...result });
+          } else if (msg.type === "scores") {
+            result.flat.scores = msg.flat;
+            result.raptor.scores = msg.raptor;
+            setStreaming({ ...result });
           }
         }
       }
@@ -202,6 +206,22 @@ function StreamingCard({ item }) {
           </div>
         </div>
       </div>
+      {(item.flat?.scores || item.raptor?.scores) ? (
+        <div className="result-scores-row">
+          <div className="result-score-col flat">
+            <ScoreBars scores={item.flat?.scores} />
+          </div>
+          <div className="result-score-col raptor">
+            <ScoreBars scores={item.raptor?.scores} />
+          </div>
+        </div>
+      ) : (
+        hasFlat && hasRaptor && item.flat?.qa_time != null && item.raptor?.qa_time != null && (
+          <div className="result-scores-row scoring-loading">
+            <span className="spinner" /> Evaluating answers...
+          </div>
+        )
+      )}
     </div>
   );
 }
@@ -236,6 +256,16 @@ function ResultCard({ item }) {
             onShowContext={() => setContextModal({ label: "RAPTOR", text: item.raptor.context })}
           />
         </div>
+        {(item.flat?.scores || item.raptor?.scores) && (
+          <div className="result-scores-row">
+            <div className="result-score-col flat">
+              <ScoreBars scores={item.flat?.scores} />
+            </div>
+            <div className="result-score-col raptor">
+              <ScoreBars scores={item.raptor?.scores} />
+            </div>
+          </div>
+        )}
       </div>
 
       {contextModal && (
@@ -287,6 +317,37 @@ function ResultColumn({ label, accent, data, onShowContext }) {
         <div className="answer-label">Answer</div>
         <Markdown>{data.answer}</Markdown>
       </div>
+    </div>
+  );
+}
+
+function ScoreBars({ scores }) {
+  if (!scores) return null;
+  const metrics = [
+    { key: "relevance", label: "Relevance" },
+    { key: "completeness", label: "Completeness" },
+    { key: "correctness", label: "Correctness" },
+  ];
+  const avg = (scores.relevance + scores.completeness + scores.correctness) / 3;
+
+  return (
+    <div className="score-bars">
+      <div className="score-header">
+        <span className="answer-label">Quality Score</span>
+        <span className="score-avg">{avg.toFixed(1)}/10</span>
+      </div>
+      {metrics.map(({ key, label }) => (
+        <div key={key} className="score-row">
+          <span className="score-label">{label}</span>
+          <div className="score-track">
+            <div
+              className="score-fill"
+              style={{ width: `${(scores[key] || 0) * 10}%` }}
+            />
+          </div>
+          <span className="score-value">{scores[key]}</span>
+        </div>
+      ))}
     </div>
   );
 }
